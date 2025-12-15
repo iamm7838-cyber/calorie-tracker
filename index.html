@@ -3,414 +3,785 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Scheduling App</title>
+    <title>Interactive Calorie Tracker Blueprint (Mini-Calendar Sync)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f7f9;
-        }
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 2px;
-            background-color: #e2e8f0;
-        }
-        .day-header {
-            background-color: #3b82f6;
-            color: white;
-            padding: 8px;
-            text-align: center;
-            font-weight: 600;
-        }
-        .day-cell {
-            min-height: 100px;
-            background-color: white;
-            padding: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            position: relative;
-        }
-        .day-cell:hover {
-            background-color: #f1f5f9;
-        }
-        .today {
-            border: 2px solid #ef4444;
-        }
-        .event-item {
-            font-size: 0.75rem;
-            margin-top: 4px;
-            padding: 2px 4px;
-            border-radius: 4px;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            background-color: #d1fae5;
-            color: #065f46;
-        }
-        .modal-content {
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
-</head>
-<body>
-    <div id="app" class="min-h-screen p-4 md:p-8">
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl font-bold text-gray-800">Collaborative Schedule</h1>
-            <p id="user-info" class="text-sm text-gray-500 mt-1"></p>
-        </header>
-
-        <main class="max-w-6xl mx-auto bg-white p-6 rounded-xl shadow-2xl">
-            <!-- Calendar Navigation -->
-            <div class="flex justify-between items-center mb-6">
-                <button id="prev-month" class="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition shadow-md">&lt; Prev</button>
-                <h2 id="month-year" class="text-2xl font-semibold text-gray-700"></h2>
-                <button id="next-month" class="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition shadow-md">Next &gt;</button>
-            </div>
-
-            <!-- Calendar Grid -->
-            <div id="calendar-container">
-                <div class="calendar-grid">
-                    <div class="day-header">Sun</div>
-                    <div class="day-header">Mon</div>
-                    <div class="day-header">Tue</div>
-                    <div class="day-header">Wed</div>
-                    <div class="day-header">Thu</div>
-                    <div class="day-header">Fri</div>
-                    <div class="day-header">Sat</div>
-                </div>
-                <div id="calendar-body" class="calendar-grid">
-                    <!-- Day cells will be inserted here -->
-                </div>
-            </div>
-
-            <!-- Add Event Button (for current day) -->
-            <div class="mt-8 text-center">
-                <button id="add-event-btn" class="px-6 py-3 bg-green-500 text-white font-semibold rounded-full hover:bg-green-600 transition shadow-lg hidden">
-                    Add Event to Selected Day
-                </button>
-            </div>
-        </main>
-    </div>
-
-    <!-- Modal for adding/editing events -->
-    <div id="event-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="modal-content bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg m-4">
-            <h3 class="text-xl font-bold mb-4 text-gray-800">Add New Event</h3>
-            <form id="event-form">
-                <div class="mb-4">
-                    <label for="event-title" class="block text-sm font-medium text-gray-700">Title</label>
-                    <input type="text" id="event-title" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                </div>
-                <div class="mb-4">
-                    <label for="event-date" class="block text-sm font-medium text-gray-700">Date</label>
-                    <input type="date" id="event-date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                </div>
-                <div class="mb-4">
-                    <label for="event-time" class="block text-sm font-medium text-gray-700">Time (Optional)</label>
-                    <input type="time" id="event-time" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" id="close-modal-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition shadow-md">Save Event</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script type="module">
+        // Import Firebase modules for persistence
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, Timestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global Firebase and App state variables
-        let app;
-        let db;
-        let auth;
-        let userId = null;
-        let events = {}; // Store events keyed by YYYY-MM-DD
-        let selectedDate = null; // Store the currently selected date (Date object)
-
-        // FIX: Declare and initialize the missing global variable
-        let currentViewDate = new Date(); // The date that dictates the current month/year being viewed
-
+        // Global variables provided by the environment (MUST be defined)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth;
+        let userId = null;
+        let isAuthReady = false;
         
-        setLogLevel('debug'); // Enable detailed Firebase logging
+        // --- Multi-Day State & Utilities ---
+        
+        // Today's date in YYYY-MM-DD format
+        const TODAY_DATE_ID = new Date().toISOString().slice(0, 10); 
+        
+        // The date currently being viewed/edited (YYYY-MM-DD string) - FIX: Declared globally
+        let currentViewDate = TODAY_DATE_ID; 
+        
+        // The Date object used to control which month the mini-calendar currently displays
+        let currentCalendarDisplayDate = new Date(); 
+        
+        // Unsubscribe function for the real-time listener
+        let unsubscribeLogListener = null;
 
-        // --- Utility Functions ---
-        const formatDateKey = (date) => {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        };
+        const getCurrentDateId = () => new Date().toISOString().slice(0, 10);
+        const parseDate = (dateString) => new Date(dateString + 'T00:00:00');
+        const formatDateInput = (dateObj) => dateObj.toISOString().slice(0, 10);
 
-        const getEventsCollectionRef = (uid) => {
-            // Using a public path for collaborative viewing
-            const collectionPath = `artifacts/${appId}/public/data/events`;
-            return collection(db, collectionPath);
-        };
-
-        const displayMessage = (message, isError = false) => {
-            console.log(isError ? 'ERROR:' : 'INFO:', message);
-            // In a real app, you'd use a custom, non-blocking UI modal or toast here.
-            // For this fix, we rely on console output.
-        };
-
-        // --- Calendar Rendering and Logic ---
-
-        const renderCalendar = () => {
-            const calendarBody = document.getElementById('calendar-body');
-            const monthYearHeader = document.getElementById('month-year');
-            const now = new Date();
-
-            calendarBody.innerHTML = ''; // Clear existing days
-
-            const year = currentViewDate.getFullYear();
-            const month = currentViewDate.getMonth();
+        // --- Firebase Initialization and Authentication ---
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            setLogLevel('Debug');
             
-            // Set header text
-            monthYearHeader.textContent = currentViewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            // Authentication Process
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                } else {
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                            userId = auth.currentUser.uid;
+                        } else {
+                            const anonUser = await signInAnonymously(auth);
+                            userId = anonUser.user.uid;
+                        }
+                    } catch (error) {
+                        console.error("Firebase Auth failed:", error);
+                        userId = crypto.randomUUID();
+                    }
+                }
+                
+                isAuthReady = true;
+                console.log("Auth Ready. User ID:", userId);
+                
+                // Once authenticated, start the app and load today's data
+                document.getElementById('user-id-display').textContent = userId;
+                window.initAppAfterAuth(); // Call global setup function
+                loadLogForDate(currentViewDate); // Load default view date (Today)
+            });
+        } else {
+            console.error("Firebase config is missing.");
+            window.initAppAfterAuth();
+        }
 
-            // Date for the first day of the month
+        // --- Data Persistence Functions ---
+
+        // Saves the current dailyLog array to Firestore for the specified dateId
+        window.saveLogToFirestore = async (dateId, logData) => {
+            if (!isAuthReady || !userId || !db) return;
+            
+            try {
+                // Private data path: /artifacts/{appId}/users/{userId}/daily_logs/{dateId}
+                const logDocRef = doc(db, 'artifacts', appId, 'users', userId, 'daily_logs', dateId);
+                await setDoc(logDocRef, { 
+                    entries: logData,
+                    timestamp: new Date().toISOString(),
+                });
+                console.log(`Log saved successfully for ${dateId}.`);
+            } catch (error) {
+                console.error("Error writing document to Firestore:", error);
+            }
+        };
+
+        // Sets up real-time listener for the specified dateId
+        window.startLogListener = (dateId, onDataLoaded) => {
+            if (!isAuthReady || !userId || !db) return null;
+
+            const logDocRef = doc(db, 'artifacts', appId, 'users', userId, 'daily_logs', dateId);
+            
+            // onSnapshot provides real-time updates and returns the unsubscribe function
+            return onSnapshot(logDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log(`Live data loaded for ${dateId}: ${data.entries.length} entries.`);
+                    onDataLoaded(data.entries);
+                } else {
+                    console.log(`No log found for ${dateId}. Starting fresh.`);
+                    onDataLoaded([]); // Start with empty array
+                }
+            }, (error) => {
+                console.error("Error listening to Firestore:", error);
+            });
+        };
+
+        // Function to switch the date view and start a new listener
+        window.loadLogForDate = function(dateId) {
+            if (!isAuthReady) {
+                currentViewDate = dateId;
+                return; 
+            }
+
+            // 1. Unsubscribe from the old listener
+            if (unsubscribeLogListener) {
+                unsubscribeLogListener();
+            }
+            
+            // 2. Update state and UI
+            currentViewDate = dateId;
+            const dateDisplay = parseDate(dateId).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('current-date-display').textContent = dateDisplay + (dateId === TODAY_DATE_ID ? ' (Today)' : '');
+            
+            // Re-render calendar to highlight the new date
+            renderMiniCalendar(); 
+            
+            // 3. Start listening to the new date
+            unsubscribeLogListener = window.startLogListener(dateId, (loadedLog) => {
+                dailyLog = loadedLog;
+                renderLog();
+                updateTotals();
+                updateCharts();
+            });
+        }
+        
+        // --- Mini-Calendar Logic ---
+
+        window.changeCalendarMonth = function(direction) {
+            currentCalendarDisplayDate.setMonth(currentCalendarDisplayDate.getMonth() + direction);
+            renderMiniCalendar();
+        }
+
+        function renderMiniCalendar() {
+            const calendarBody = document.getElementById('mini-calendar-body');
+            const monthYearHeader = document.getElementById('calendar-month-year');
+            const nowKey = getCurrentDateId();
+            
+            calendarBody.innerHTML = ''; 
+
+            const year = currentCalendarDisplayDate.getFullYear();
+            const month = currentCalendarDisplayDate.getMonth();
+            
+            monthYearHeader.textContent = currentCalendarDisplayDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
             const firstDayOfMonth = new Date(year, month, 1);
-            // Day of the week (0=Sun, 6=Sat) for the 1st of the month
-            const startDayOfWeek = firstDayOfMonth.getDay();
-            // Total days in the month
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startDayOfWeek = firstDayOfMonth.getDay(); // 0 (Sunday) to 6 (Saturday)
 
-            // Calculate previous month's days to fill the start
-            const prevMonthDays = new Date(year, month, 0).getDate();
-            
-            // Start date for the calendar grid (could be in the previous month)
             let currentDate = new Date(firstDayOfMonth);
             currentDate.setDate(currentDate.getDate() - startDayOfWeek);
 
-            // Total cells to render (at least 6 weeks to ensure consistency)
-            const totalCells = 42; 
+            const totalCells = 35; // 5 weeks * 7 days (keeping it compact)
 
             for (let i = 0; i < totalCells; i++) {
+                const dateKey = formatDateInput(currentDate);
                 const dayCell = document.createElement('div');
-                dayCell.className = 'day-cell rounded-lg shadow-sm';
                 
-                const dayNumber = currentDate.getDate();
-                const dateKey = formatDateKey(currentDate);
-
+                dayCell.className = `p-1 text-center text-sm font-medium rounded-md transition-colors cursor-pointer`;
                 dayCell.setAttribute('data-date', dateKey);
+                dayCell.textContent = currentDate.getDate();
 
-                // Check if the date is in the current month
+                // Style for days outside the current month
                 if (currentDate.getMonth() !== month) {
-                    dayCell.classList.add('bg-gray-100', 'text-gray-400');
+                    dayCell.classList.add('opacity-40', 'pointer-events-none');
                 } else {
-                    dayCell.classList.add('text-gray-800');
-                    dayCell.classList.remove('bg-gray-100');
-                    dayCell.onclick = () => selectDate(new Date(currentDate));
-                }
+                    dayCell.classList.add('hover:bg-stone-100');
+                    
+                    // Style for today
+                    if (dateKey === nowKey) {
+                        dayCell.classList.add('border', 'border-red-400');
+                    }
+                    
+                    // Style for currently viewed day
+                    if (dateKey === currentViewDate) {
+                        dayCell.classList.add('bg-orange-600', 'text-white', 'shadow-lg', 'mini-day-selected');
+                        dayCell.classList.remove('hover:bg-stone-100');
+                    }
 
-                // Check if today
-                if (dateKey === formatDateKey(now)) {
-                    dayCell.classList.add('today');
-                }
-
-                // Day number display
-                dayCell.innerHTML = `<div class="font-bold text-lg mb-1">${dayNumber}</div>`;
-
-                // Render Events
-                if (events[dateKey]) {
-                    events[dateKey].forEach(event => {
-                        const eventDiv = document.createElement('div');
-                        eventDiv.className = 'event-item';
-                        eventDiv.textContent = event.title;
-                        dayCell.appendChild(eventDiv);
-                    });
+                    // Add click listener
+                    dayCell.onclick = () => {
+                        window.loadLogForDate(dateKey); // Calls the main loading function
+                    };
                 }
 
                 calendarBody.appendChild(dayCell);
-                // Move to the next day
-                currentDate.setDate(currentDate.getDate() + 1);
+                currentDate.setDate(currentDate.getDate() + 1); // Increment day
             }
-        };
-
-        const selectDate = (date) => {
-            selectedDate = date;
-            const dateKey = formatDateKey(date);
-
-            // Clear previous selections
-            document.querySelectorAll('.day-cell').forEach(cell => {
-                cell.classList.remove('bg-yellow-200', 'ring-2', 'ring-yellow-500');
-            });
-
-            // Highlight the selected date
-            const selectedCell = document.querySelector(`.day-cell[data-date='${dateKey}']`);
-            if (selectedCell) {
-                selectedCell.classList.add('bg-yellow-200', 'ring-2', 'ring-yellow-500');
-            }
-            
-            // Show the add event button and pre-fill modal date
-            document.getElementById('add-event-btn').classList.remove('hidden');
-            document.getElementById('event-date').value = dateKey;
-        };
-
-        const showModal = () => {
-            if (!selectedDate) {
-                displayMessage("Please select a date on the calendar first.", true);
-                return;
-            }
-            document.getElementById('event-modal').classList.remove('hidden');
-            document.getElementById('event-title').value = '';
-            document.getElementById('event-time').value = '';
-        };
-
-        const hideModal = () => {
-            document.getElementById('event-modal').classList.add('hidden');
-        };
-
-
-        // --- Firestore Data Handlers ---
-
-        const saveEvent = async (e) => {
-            e.preventDefault();
-            
-            if (!userId) {
-                displayMessage("Authentication not ready. Cannot save event.", true);
-                return;
-            }
-
-            const title = document.getElementById('event-title').value.trim();
-            const dateStr = document.getElementById('event-date').value;
-            const timeStr = document.getElementById('event-time').value.trim();
-            
-            if (!title || !dateStr) {
-                displayMessage("Title and Date are required.", true);
-                return;
-            }
-
-            try {
-                // Combine date and time into a Timestamp
-                let eventDate = new Date(dateStr);
-                if (timeStr) {
-                    const [hours, minutes] = timeStr.split(':').map(Number);
-                    eventDate.setHours(hours, minutes, 0, 0);
-                }
-                
-                // Firestore document data
-                const eventData = {
-                    title: title,
-                    date: Timestamp.fromDate(eventDate),
-                    createdBy: userId,
-                    createdAt: Timestamp.now()
-                };
-
-                await addDoc(getEventsCollectionRef(userId), eventData);
-                hideModal();
-                displayMessage("Event saved successfully!");
-            } catch (error) {
-                displayMessage(`Error saving event: ${error.message}`, true);
-            }
-        };
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
         
-        // Listen for real-time updates to the events
-        const setupEventsListener = () => {
-            if (!userId || !db) return;
+        /* Chart Container Utilities */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px; /* Max width for readability */
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .mini-calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+    </style>
+</head>
+<body class="bg-[#FDFBF7] text-gray-700 font-sans min-h-screen flex flex-col">
 
-            // Query: Get all events (no filtering, as it's a public collection)
-            const q = query(getEventsCollectionRef(userId));
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-stone-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <h1 class="text-3xl font-bold text-stone-800">Calorie Tracker <span class="text-orange-600">Pro</span></h1>
+            <p class="mt-2 text-stone-600 max-w-3xl flex justify-between items-center text-sm">
+                <span>Data is synchronized across multiple days using **Firestore**.</span>
+                <span class="text-xs bg-stone-100 p-1 rounded-full text-stone-500">
+                    User ID: <code id="user-id-display">Authenticating...</code>
+                </span>
+            </p>
+        </div>
+    </header>
 
-            onSnapshot(q, (querySnapshot) => {
-                const newEvents = {};
-                querySnapshot.forEach((doc) => {
-                    const event = doc.data();
-                    const date = event.date.toDate();
-                    const dateKey = formatDateKey(date);
-                    
-                    if (!newEvents[dateKey]) {
-                        newEvents[dateKey] = [];
-                    }
-                    newEvents[dateKey].push({ id: doc.id, ...event, date });
-                });
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <!-- Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- COLUMN 1: INPUT & CONTROLS (lg:col-span-4) -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
                 
-                events = newEvents;
-                renderCalendar(); // Re-render the calendar when events change
-                displayMessage(`Loaded ${querySnapshot.size} events.`);
-            }, (error) => {
-                displayMessage(`Failed to listen to events: ${error.message}`, true);
+                <!-- Mini Calendar Section -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+                    <h2 class="text-xl font-bold text-stone-800 mb-4">Select Date</h2>
+
+                    <!-- Calendar Navigation -->
+                    <div class="flex justify-between items-center mb-4">
+                        <button onclick="changeCalendarMonth(-1)" class="p-2 rounded-full hover:bg-stone-100 text-stone-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <span id="calendar-month-year" class="text-lg font-semibold text-stone-800">Loading...</span>
+                        <button onclick="changeCalendarMonth(1)" class="p-2 rounded-full hover:bg-stone-100 text-stone-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                        </button>
+                    </div>
+
+                    <!-- Day Headers -->
+                    <div class="mini-calendar-grid text-xs font-semibold text-stone-500 mb-2">
+                        <div class="text-center">S</div>
+                        <div class="text-center">M</div>
+                        <div class="text-center">T</div>
+                        <div class="text-center">W</div>
+                        <div class="text-center">T</div>
+                        <div class="text-center">F</div>
+                        <div class="text-center">S</div>
+                    </div>
+
+                    <!-- Calendar Body -->
+                    <div id="mini-calendar-body" class="mini-calendar-grid">
+                        <!-- Days generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Meal Input Form -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+                    <h2 class="text-xl font-bold text-stone-800 mb-2">Log Your Meal</h2>
+                    <p class="text-sm text-stone-500 mb-4">
+                        All new entries are logged to the **currently selected date**.
+                    </p>
+
+                    <!-- Input Form -->
+                    <form id="tracker-form" class="space-y-4">
+                        
+                        <!-- Meal Selector -->
+                        <div>
+                            <label class="block text-sm font-medium text-stone-700 mb-1">Meal Type</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" class="meal-btn active px-4 py-2 text-sm font-medium rounded-lg border border-orange-200 bg-orange-50 text-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500" data-meal="Breakfast">Breakfast</button>
+                                <button type="button" class="meal-btn px-4 py-2 text-sm font-medium rounded-lg border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500" data-meal="Lunch">Lunch</button>
+                                <button type="button" class="meal-btn px-4 py-2 text-sm font-medium rounded-lg border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500" data-meal="Dinner">Dinner</button>
+                            </div>
+                        </div>
+
+                        <!-- Food Selector -->
+                        <div>
+                            <label for="food-select" class="block text-sm font-medium text-stone-700 mb-1">Food Item (from Database)</label>
+                            <select id="food-select" class="block w-full rounded-lg border-stone-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-2 border bg-stone-50">
+                                <option value="" disabled selected>Select a food...</option>
+                                <!-- JS will populate this -->
+                            </select>
+                        </div>
+
+                        <!-- Quantity Input -->
+                        <div>
+                            <label for="quantity-input" class="block text-sm font-medium text-stone-700 mb-1">
+                                Quantity Multiplier 
+                                <span class="text-xs text-stone-400 font-normal">(1 = 100g/1 unit)</span>
+                            </label>
+                            <div class="flex items-center">
+                                <input type="number" id="quantity-input" value="1" step="0.1" min="0.1" class="block w-full rounded-l-lg border-stone-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-2 border border-r-0">
+                                <span class="inline-flex items-center px-3 rounded-r-lg border border-l-0 border-stone-300 bg-stone-50 text-gray-500 sm:text-sm h-[38px]">
+                                    x Base
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Live Preview Card (What formula sees) -->
+                        <div id="preview-card" class="hidden bg-stone-50 rounded-lg p-3 border border-stone-200 text-sm">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-semibold text-stone-700" id="preview-name">Food</span>
+                                <span class="text-xs bg-stone-200 px-2 py-0.5 rounded-full text-stone-600" id="preview-type">Type</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-2 text-center text-xs text-stone-600">
+                                <div>
+                                    <span class="block font-bold text-orange-600" id="preview-cals">-</span>
+                                    Cals
+                                </div>
+                                <div>
+                                    <span class="block font-bold" id="preview-pro">-</span>
+                                    Pro
+                                </div>
+                                <div>
+                                    <span class="block font-bold" id="preview-carb">-</span>
+                                    Carb
+                                </div>
+                                <div>
+                                    <span class="block font-bold" id="preview-fat">-</span>
+                                    Fat
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors">
+                            Add to Daily Log
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Database Reference (Mini) -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex-grow">
+                    <h3 class="text-sm font-bold text-stone-800 uppercase tracking-wide mb-3">Database Snapshot</h3>
+                    <div class="overflow-y-auto max-h-60 text-xs text-stone-600">
+                        <table class="min-w-full divide-y divide-stone-200">
+                            <thead class="bg-stone-50">
+                                <tr>
+                                    <th class="px-2 py-2 text-left">Food</th>
+                                    <th class="px-2 py-2 text-right">Cal/Base</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mini-db-body" class="divide-y divide-stone-100">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLUMN 2: DAILY LOG (lg:col-span-5) -->
+            <div class="lg:col-span-5 flex flex-col h-full">
+                <div class="bg-white rounded-xl shadow-sm border border-stone-100 flex flex-col h-full overflow-hidden">
+                    
+                    <!-- Log Header and Actions -->
+                    <div class="p-4 border-b border-stone-100 bg-stone-50">
+                        <h2 class="text-xl font-bold text-stone-800 mb-1">Daily Log</h2>
+                        <div class="flex justify-between items-center pt-2">
+                            <p class="text-sm text-stone-500" id="current-date-display">Loading date...</p>
+                            <button id="clear-log" class="text-xs text-red-500 hover:text-red-700 font-medium">Clear Log</button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-grow overflow-auto p-0">
+                        <table class="min-w-full divide-y divide-stone-200">
+                            <thead class="bg-stone-50 sticky top-0 z-10">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Meal/Food</th>
+                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-stone-500 uppercase tracking-wider">Qty</th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-stone-500 uppercase tracking-wider">Cals</th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-stone-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-body" class="bg-white divide-y divide-stone-100">
+                                <!-- Empty State -->
+                                <tr id="empty-log-state">
+                                    <td colspan="4" class="px-6 py-12 text-center text-stone-400 text-sm">
+                                        Loading log from cloud...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Totals Footer -->
+                    <div class="bg-stone-50 p-6 border-t border-stone-200">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-sm font-medium text-stone-500 uppercase">Total Calories</span>
+                            <span class="text-3xl font-bold text-orange-600" id="total-cals-display">0</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 border-t border-stone-200 pt-4">
+                            <div class="text-center">
+                                <span class="block text-xs text-stone-500 uppercase">Protein</span>
+                                <span class="block text-lg font-bold text-stone-800"><span id="total-pro-display">0</span>g</span>
+                            </div>
+                            <div class="text-center border-l border-stone-200">
+                                <span class="block text-xs text-stone-500 uppercase">Carbs</span>
+                                <span class="block text-lg font-bold text-stone-800"><span id="total-carb-display">0</span>g</span>
+                            </div>
+                            <div class="text-center border-l border-stone-200">
+                                <span class="block text-xs text-stone-500 uppercase">Fat</span>
+                                <span class="block text-lg font-bold text-stone-800"><span id="total-fat-display">0</span>g</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMN 3: VISUALIZATION (lg:col-span-3) -->
+            <div class="lg:col-span-3 flex flex-col gap-6">
+                
+                <!-- Chart 1: Macro Breakdown -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
+                    <h3 class="text-sm font-bold text-stone-800 mb-4">Macro Distribution (g)</h3>
+                    <!-- Chart Container as required -->
+                    <div class="chart-container" style="height: 220px; max-height: 250px;">
+                        <canvas id="macroChart"></canvas>
+                    </div>
+                    <div class="mt-4 flex justify-center space-x-4 text-xs text-stone-600">
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-green-500 mr-1"></span> Carbs</div>
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-orange-500 mr-1"></span> Protein</div>
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-yellow-400 mr-1"></span> Fat</div>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Calorie Source -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
+                    <h3 class="text-sm font-bold text-stone-800 mb-4">Calories by Meal</h3>
+                    <!-- Chart Container as required -->
+                    <div class="chart-container" style="height: 200px; max-height: 250px;">
+                        <canvas id="mealChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-stone-50 border-t border-stone-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 py-6 text-center text-xs text-stone-400">
+            Interactive Blueprint &bull; Uses Chart.js, Tailwind CSS, and **Firestore** for persistence.
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. DATA STORAGE (The "Database" Tab) ---
+        const foodDatabase = [
+            { type: "CARBS", name: "Carb - Rice (White, Cooked, 100g)", cal: 130, pro: 2.7, carb: 28, fat: 0.3 },
+            { type: "CARBS", name: "Carb - Rice (Brown, Cooked, 100g)", cal: 111, pro: 2.6, carb: 23, fat: 0.9 },
+            { type: "CARBS", name: "Carb - Oats (Dry, 100g)", cal: 389, pro: 16.9, carb: 66, fat: 6.9 },
+            { type: "CARBS", name: "Carb - Potato (Boiled, 100g)", cal: 87, pro: 1.9, carb: 20, fat: 0.1 },
+            { type: "CARBS", name: "Carb - Bread (Whole Wheat, 1 slice)", cal: 80, pro: 4, carb: 13, fat: 1 },
+            { type: "PROTEIN", name: "Protein - Chicken Breast (Raw, 100g)", cal: 165, pro: 31, carb: 0, fat: 3.6 },
+            { type: "PROTEIN", name: "Protein - Ground Beef (90% Lean, 100g)", cal: 176, pro: 20, carb: 0, fat: 10 },
+            { type: "PROTEIN", name: "Protein - Salmon (Raw, 100g)", cal: 208, pro: 20, carb: 0, fat: 13 },
+            { type: "PROTEIN", name: "Protein - Egg (Large, 1 unit)", cal: 78, pro: 6, carb: 0.6, fat: 5 },
+            { type: "PROTEIN", name: "Protein - Tofu (Firm, 100g)", cal: 144, pro: 17, carb: 3, fat: 9 },
+            { type: "FRUIT/VEG", name: "Fruit - Banana (Medium)", cal: 105, pro: 1.3, carb: 27, fat: 0.4 },
+            { type: "FRUIT/VEG", name: "Fruit - Apple (Medium)", cal: 95, pro: 0.5, carb: 25, fat: 0.3 },
+            { type: "FRUIT/VEG", name: "Veg - Broccoli (Steamed, 100g)", cal: 35, pro: 2.4, carb: 7, fat: 0.4 },
+            { type: "FRUIT/VEG", name: "Veg - Spinach (Raw, 100g)", cal: 23, pro: 2.9, carb: 3.6, fat: 0.4 },
+            { type: "DAIRY/FATS", name: "Dairy - Greek Yogurt (Plain, 100g)", cal: 59, pro: 10, carb: 3.6, fat: 0.4 },
+            { type: "DAIRY/FATS", name: "Fat - Peanut Butter (1 tbsp)", cal: 94, pro: 4, carb: 3, fat: 8 },
+            { type: "DAIRY/FATS", name: "Fat - Olive Oil (1 tbsp)", cal: 119, pro: 0, carb: 0, fat: 14 }
+        ];
+
+        // State for Daily Log
+        let dailyLog = [];
+        let currentMeal = "Breakfast";
+
+        // --- 2. INITIALIZATION & DOM ELEMENTS ---
+        const foodSelect = document.getElementById('food-select');
+        const quantityInput = document.getElementById('quantity-input');
+        const previewCard = document.getElementById('preview-card');
+        const trackerForm = document.getElementById('tracker-form');
+        const logBody = document.getElementById('log-body');
+        const miniDbBody = document.getElementById('mini-db-body');
+        const mealBtns = document.querySelectorAll('.meal-btn');
+        const clearLogBtn = document.getElementById('clear-log');
+
+        // Chart Instances
+        let macroChart = null;
+        let mealChart = null;
+
+        // Global function called after Firebase authentication is complete
+        window.initAppAfterAuth = function() {
+            // Populate Dropdown & Mini DB
+            foodDatabase.forEach((food, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = food.name;
+                foodSelect.appendChild(option);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-2 py-1 truncate">${food.name.split(' - ')[1] || food.name}</td>
+                    <td class="px-2 py-1 text-right font-mono text-orange-600">${food.cal}</td>
+                `;
+                miniDbBody.appendChild(row);
             });
-        };
+            
+            initCharts();
+            renderMiniCalendar();
+        }
 
-        // --- Initialization and Event Listeners ---
+        // --- 3. EVENT LISTENERS ---
 
-        window.initAppAfterAuth = async (user) => {
-            userId = user.uid;
-            document.getElementById('user-info').textContent = `User ID: ${userId} (Public Data)`;
-            
-            // Initialize calendar view
-            currentViewDate = new Date(); // Re-initialize to ensure it's a valid Date object
-            renderCalendar(); 
-            
-            // Start listening for data changes
-            setupEventsListener();
-            
-            // Attach interaction listeners
-            document.getElementById('prev-month').addEventListener('click', () => {
-                currentViewDate.setMonth(currentViewDate.getMonth() - 1);
-                renderCalendar();
+        mealBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                mealBtns.forEach(b => {
+                    b.classList.remove('bg-orange-50', 'border-orange-200', 'text-orange-700', 'active');
+                    b.classList.add('bg-white', 'border-stone-200', 'text-stone-600');
+                });
+                btn.classList.remove('bg-white', 'border-stone-200', 'text-stone-600');
+                btn.classList.add('bg-orange-50', 'border-orange-200', 'text-orange-700', 'active');
+                currentMeal = btn.dataset.meal;
             });
+        });
 
-            document.getElementById('next-month').addEventListener('click', () => {
-                currentViewDate.setMonth(currentViewDate.getMonth() + 1);
-                renderCalendar();
-            });
+        foodSelect.addEventListener('change', updatePreview);
+        quantityInput.addEventListener('input', updatePreview);
 
-            document.getElementById('add-event-btn').addEventListener('click', showModal);
-            document.getElementById('close-modal-btn').addEventListener('click', hideModal);
+        function updatePreview() {
+            const index = foodSelect.value;
+            if (index === "") {
+                previewCard.classList.add('hidden');
+                return;
+            }
             
-            // This is where the third error occurred. It now accesses the globally defined currentViewDate
-            document.getElementById('event-form').addEventListener('submit', saveEvent);
+            previewCard.classList.remove('hidden');
+            const food = foodDatabase[index];
+            const qty = parseFloat(quantityInput.value) || 0;
 
-        };
+            document.getElementById('preview-name').textContent = food.name.includes('-') ? food.name.split(' - ')[1] : food.name;
+            document.getElementById('preview-type').textContent = food.type;
+            
+            // Calculate Previews (The VLOOKUP math)
+            document.getElementById('preview-cals').textContent = Math.round(food.cal * qty);
+            document.getElementById('preview-pro').textContent = (food.pro * qty).toFixed(1);
+            document.getElementById('preview-carb').textContent = (food.carb * qty).toFixed(1);
+            document.getElementById('preview-fat').textContent = (food.fat * qty).toFixed(1);
+        }
 
+        trackerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const index = foodSelect.value;
+            if (index === "") return;
 
-        window.onload = async () => {
-            if (Object.keys(firebaseConfig).length === 0) {
-                displayMessage("Firebase configuration is missing. Cannot proceed with database connection.", true);
+            const food = foodDatabase[index];
+            const qty = parseFloat(quantityInput.value) || 0;
+
+            const entry = {
+                id: crypto.randomUUID(), 
+                meal: currentMeal,
+                foodName: food.name,
+                qty: qty,
+                cals: Math.round(food.cal * qty),
+                pro: parseFloat((food.pro * qty).toFixed(1)),
+                carb: parseFloat((food.carb * qty).toFixed(1)),
+                fat: parseFloat((food.fat * qty).toFixed(1))
+            };
+
+            dailyLog = [...dailyLog, entry]; // Create new array to trigger update
+            // Save log to the currently viewed date (currentViewDate is now global and defined)
+            window.saveLogToFirestore(currentViewDate, dailyLog); 
+            
+            quantityInput.value = 1;
+            updatePreview();
+        });
+
+        clearLogBtn.addEventListener('click', () => {
+            if(window.confirm(`Clear all entries for ${currentViewDate}? This action is permanent and will sync to the cloud.`)) {
+                dailyLog = [];
+                // Save empty array to the currently viewed date
+                window.saveLogToFirestore(currentViewDate, dailyLog); 
+            }
+        });
+
+        // --- 4. RENDERING & LOGIC ---
+
+        function renderLog() {
+            logBody.innerHTML = '';
+            
+            if (dailyLog.length === 0) {
+                logBody.innerHTML = `
+                    <tr id="empty-log-state">
+                        <td colspan="4" class="px-6 py-12 text-center text-stone-400 text-sm">
+                            No food logged for this day. <br>Add an entry on the left to start tracking.
+                        </td>
+                    </tr>
+                `;
                 return;
             }
 
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+            const mealOrder = { "Breakfast": 1, "Lunch": 2, "Dinner": 3 };
+            const sortedLog = [...dailyLog].sort((a, b) => mealOrder[a.meal] - mealOrder[b.meal]);
+
+            sortedLog.forEach(entry => {
+                const tr = document.createElement('tr');
+                const cleanName = entry.foodName.includes('-') ? entry.foodName.split(' - ')[1] : entry.foodName;
                 
-                // Set persistence before attempting sign in
-                await setPersistence(auth, browserLocalPersistence);
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div>
+                                <div class="text-sm font-medium text-stone-900">${cleanName}</div>
+                                <div class="text-xs text-stone-500">${entry.meal}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-stone-100 text-stone-800">
+                            x${entry.qty}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-stone-500 font-mono">
+                        ${entry.cals}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-red-400 hover:text-red-600" onclick="deleteEntry('${entry.id}')">
+                            &times;
+                        </button>
+                    </td>
+                `;
+                logBody.appendChild(tr);
+            });
+        }
 
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
+        window.deleteEntry = function(id) {
+            const entryToDelete = dailyLog.find(e => e.id === id);
+            
+            if (entryToDelete) {
+                if (window.confirm(`Are you sure you want to delete ${entryToDelete.foodName} from ${currentViewDate}?`)) {
+                    dailyLog = dailyLog.filter(e => e.id !== id);
+                    // Save the updated log to the currently viewed date
+                    window.saveLogToFirestore(currentViewDate, dailyLog); 
                 }
-
-                // Wait for auth state change to ensure user object is ready
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        window.initAppAfterAuth(user);
-                    } else {
-                        displayMessage("Authentication failed. Cannot load app.", true);
-                    }
-                });
-
-            } catch (error) {
-                displayMessage(`Firebase Initialization or Auth Error: ${error.message}`, true);
+            } else {
+                console.error("Entry not found for deletion.");
             }
-        };
+        }
+
+        function updateTotals() {
+            const totals = dailyLog.reduce((acc, curr) => {
+                acc.cals += curr.cals;
+                acc.pro += curr.pro;
+                acc.carb += curr.carb;
+                acc.fat += curr.fat;
+                return acc;
+            }, { cals: 0, pro: 0, carb: 0, fat: 0 });
+
+            document.getElementById('total-cals-display').textContent = totals.cals;
+            document.getElementById('total-pro-display').textContent = totals.pro.toFixed(1);
+            document.getElementById('total-carb-display').textContent = totals.carb.toFixed(1);
+            document.getElementById('total-fat-display').textContent = totals.fat.toFixed(1);
+        }
+
+        // --- 5. CHARTS (Chart.js) ---
+
+        function initCharts() {
+            // Destroy existing chart instances before creating new ones 
+            if (macroChart) { macroChart.destroy(); }
+            if (mealChart) { mealChart.destroy(); }
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            };
+
+            const ctxMacro = document.getElementById('macroChart').getContext('2d');
+            macroChart = new Chart(ctxMacro, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Carbs', 'Protein', 'Fat'],
+                    datasets: [{
+                        data: [0.1, 0.1, 0.1], // Use tiny values to prevent rendering issues when zero
+                        backgroundColor: ['#e5e7eb', '#e5e7eb', '#e5e7eb'], // Placeholder color
+                        borderWidth: 0, hoverOffset: 4
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    cutout: '70%',
+                    plugins: { tooltip: { callbacks: { label: (context) => ` ${context.label}: ${context.raw.toFixed(1)}g` } } }
+                }
+            });
+
+            const ctxMeal = document.getElementById('mealChart').getContext('2d');
+            mealChart = new Chart(ctxMeal, {
+                type: 'bar',
+                data: {
+                    labels: ['Bfast', 'Lunch', 'Dinner'],
+                    datasets: [{
+                        label: 'Calories',
+                        data: [0, 0, 0],
+                        backgroundColor: '#ea580c',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            const totalCarb = dailyLog.reduce((sum, item) => sum + item.carb, 0);
+            const totalPro = dailyLog.reduce((sum, item) => sum + item.pro, 0);
+            const totalFat = dailyLog.reduce((sum, item) => sum + item.fat, 0);
+
+            if (totalCarb + totalPro + totalFat === 0) {
+                 macroChart.data.datasets[0].data = [0.1, 0.1, 0.1];
+                 macroChart.data.datasets[0].backgroundColor = ['#e5e7eb', '#e5e7eb', '#e5e7eb'];
+            } else {
+                 macroChart.data.datasets[0].data = [totalCarb, totalPro, totalFat];
+                 macroChart.data.datasets[0].backgroundColor = ['#22c55e', '#f97316', '#facc15'];
+            }
+            macroChart.update();
+
+            const bfastCals = dailyLog.filter(i => i.meal === 'Breakfast').reduce((s, i) => s + i.cals, 0);
+            const lunchCals = dailyLog.filter(i => i.meal === 'Lunch').reduce((s, i) => s + i.cals, 0);
+            const dinnerCals = dailyLog.filter(i => i.meal === 'Dinner').reduce((s, i) => s + i.cals, 0);
+
+            mealChart.data.datasets[0].data = [bfastCals, lunchCals, dinnerCals];
+            mealChart.update();
+        }
 
     </script>
 </body>
